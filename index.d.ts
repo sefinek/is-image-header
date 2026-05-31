@@ -1,11 +1,12 @@
-declare module 'is-image-header' {
-    interface IsImageResult {
-        success: boolean;
-        status: number | null | undefined;
-        isImage: boolean | null;
-        message: undefined | string;
-    }
+declare function isImage(url: string): Promise<isImage.Result>;
 
-    function isImage(url: string): Promise<IsImageResult>;
-    export default isImage;
+declare namespace isImage {
+    interface Result {
+        success: boolean;
+        status: number | null;
+        isImage: boolean | null;
+        message?: string;
+    }
 }
+
+export = isImage;

@@ -34,7 +34,5 @@ Join our [Discord server](https://discord.gg/53DBjTuzgZ) or open a new [Issue](h
 ## ⭐ » Star
 If you enjoy this module, please consider starring [the repository](https://github.com/sefinek/random-cat-img).
 
-## 📜 » License MIT
-<div align="center">
-    Copyright 2023-2024 © by <a href="https://sefinek.net">Sefinek</a>. All Rights Reserved.
-</div>
+## 📜 » License
+Copyright © [Sefinek](https://sefinek.net). Licensed under the [MIT License](LICENSE).

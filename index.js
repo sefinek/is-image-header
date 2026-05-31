@@ -1,40 +1,30 @@
-const axios = require('axios');
 const isUrl = require('./is-url.js');
-const { name, version, devDependencies } = require('./package.json');
+const { name, version } = require('./package.json');
 
-const headers = {
-	'User-Agent': `${name}/${version} (+https://github.com/sefinek/is-image-header)${process.env.JEST_WORKER_ID ? ` jest/${devDependencies.jest.replace(/^[^0-9]*/, '')}` : ''}`,
-	'Accept': 'application/json',
-	'Content-Type': 'application/json',
+const HEADERS = {
+	'User-Agent': `${name}/${version} (+https://github.com/sefinek/is-image-header)`,
 	'Cache-Control': 'no-cache',
-	'Connection': 'keep-alive',
-	'DNT': '1',
 };
 
 module.exports = async url => {
 	if (!isUrl(url)) return { success: false, status: null, isImage: false, message: 'Invalid URL' };
 
 	try {
-		const res = await axios.head(url, {
-			headers,
-			timeout: 8000, // Request timeout
-			validateStatus: status => status >= 200 && status < 511, // Accept all status codes
+		const res = await fetch(url, {
+			method: 'HEAD',
+			headers: HEADERS,
+			signal: AbortSignal.timeout(8000),
 		});
-
-		if (res.status === 404) {
-			return { success: false, status: res.status, isImage: false, message: res.statusText };
-		}
 
 		if (res.status !== 200) {
 			return { success: false, status: res.status, isImage: false, message: res.statusText };
 		}
 
-		if (res.headers['content-type']?.startsWith('image/')) {
-			return { success: true, status: res.status, isImage: true };
-		} else {
-			return { success: true, status: res.status, isImage: false };
-		}
+		return { success: true, status: res.status, isImage: res.headers.get('content-type')?.startsWith('image/') ?? false };
 	} catch (err) {
+		if (err.name === 'TimeoutError') {
+			return { success: false, status: null, isImage: null, message: 'Request timed out' };
+		}
 		return {
 			success: false,
 			status: null,

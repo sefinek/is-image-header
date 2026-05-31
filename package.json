@@ -1,6 +1,6 @@
 {
   "name": "is-image-header",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "This simple module checks if the given link leads to an image.",
   "keywords": [
     "check",
@@ -8,15 +8,15 @@
     "header",
     "image",
     "img",
-    "is image url",
-    "is image",
-    "is img",
+    "is-image-url",
+    "is-image",
+    "is-img",
     "jpeg",
     "jpg",
     "pic",
     "picture",
     "png",
-    "url is image"
+    "url-is-image"
   ],
   "homepage": "https://github.com/sefinek/is-image-header#readme",
   "bugs": {
@@ -28,18 +28,30 @@
   },
   "license": "MIT",
   "author": "Sefinek <contact@sefinek.net> (https://sefinek.net)",
+  "type": "commonjs",
   "main": "index.js",
   "types": "index.d.ts",
+  "directories": {
+    "test": "test"
+  },
+  "files": [
+    "example.js",
+    "index.d.ts",
+    "index.js",
+    "is-url.js",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "m": "ncu -u && npm install && npm update",
     "test": "jest"
   },
-  "dependencies": {
-    "axios": "^1.7.7"
-  },
   "devDependencies": {
-    "@eslint/js": "^9.14.0",
-    "globals": "^15.12.0",
-    "jest": "^29.7.0"
+    "@eslint/js": "^10.0.1",
+    "globals": "^17.6.0",
+    "jest": "^30.4.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

@@ -3,7 +3,6 @@ const { name, version } = require('./package.json');
 
 const HEADERS = {
 	'User-Agent': `${name}/${version} (+https://github.com/sefinek/is-image-header)`,
-	'Cache-Control': 'no-cache',
 };
 
 module.exports = async url => {

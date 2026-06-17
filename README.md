@@ -4,7 +4,7 @@ This simple module checks if the given link leads to an image.
 ## 🤔 » Installation
 ```bash
 npm install is-image-header
-````
+```
 
 ## 📝 » Usage
 ### • Async/await example
@@ -32,7 +32,7 @@ isImage('https://sefinek.net').then(console.log); // { success: true, status: 20
 Join our [Discord server](https://discord.gg/53DBjTuzgZ) or open a new [Issue](https://github.com/sefinek/is-image-header/issues).
 
 ## ⭐ » Star
-If you enjoy this module, please consider starring [the repository](https://github.com/sefinek/random-cat-img).
+If you enjoy this module, please consider starring [the repository](https://github.com/sefinek/is-image-header).
 
 ## 📜 » License
 Copyright © [Sefinek](https://sefinek.net). Licensed under the [MIT License](LICENSE).

@@ -18,7 +18,7 @@
     "png",
     "url-is-image"
   ],
-  "homepage": "https://github.com/sefinek/is-image-header#readme",
+  "homepage": "https://github.com/sefinek/is-image-header",
   "bugs": {
     "url": "https://github.com/sefinek/is-image-header/issues"
   },
@@ -52,7 +52,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "globals": "^17.6.0",
+    "globals": "^17.7.0",
     "jest": "^30.4.2"
   },
   "engines": {

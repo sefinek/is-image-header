@@ -2,9 +2,11 @@ const isImage = require('../index.js');
 
 const mockFetch = (status, statusText, contentType) => {
 	jest.spyOn(global, 'fetch').mockResolvedValue({
+		ok: status >= 200 && status < 300,
 		status,
 		statusText,
 		headers: { get: key => key === 'content-type' ? contentType : null },
+		body: { cancel: jest.fn() },
 	});
 };
 
@@ -58,6 +60,11 @@ describe('unit (mocked fetch)', () => {
 			mockFetch(200, 'OK', null);
 			expect(await isImage('https://example.com')).toEqual({ success: true, status: 200, isImage: false });
 		});
+
+		test('206 Partial Content → isImage: true', async () => {
+			mockFetch(206, 'Partial Content', 'image/jpeg');
+			expect(await isImage('https://example.com/img.jpg')).toEqual({ success: true, status: 206, isImage: true });
+		});
 	});
 
 	describe('non-200 status codes', () => {
@@ -75,6 +82,32 @@ describe('unit (mocked fetch)', () => {
 				isImage: false,
 				message: statusText,
 			});
+		});
+	});
+
+	describe('HEAD fallback', () => {
+		test('405 Method Not Allowed → GET range fallback', async () => {
+			jest.spyOn(global, 'fetch')
+				.mockResolvedValueOnce({
+					ok: false,
+					status: 405,
+					statusText: 'Method Not Allowed',
+					headers: { get: () => null },
+					body: { cancel: jest.fn() },
+				})
+				.mockResolvedValueOnce({
+					ok: true,
+					status: 206,
+					statusText: 'Partial Content',
+					headers: { get: key => key === 'content-type' ? 'image/jpeg' : null },
+					body: { cancel: jest.fn() },
+				});
+
+			expect(await isImage('https://example.com/img.jpg')).toEqual({ success: true, status: 206, isImage: true });
+			expect(global.fetch).toHaveBeenNthCalledWith(2, 'https://example.com/img.jpg', expect.objectContaining({
+				method: 'GET',
+				headers: expect.objectContaining({ Range: 'bytes=0-0' }),
+			}));
 		});
 	});
 

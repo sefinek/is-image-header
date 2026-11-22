@@ -1,3 +1,4 @@
+const { STATUS_CODES } = require('node:http');
 const isUrl = require('./is-url.js');
 const { name, version, homepage } = require('./package.json');
 
@@ -37,7 +38,7 @@ module.exports = async url => {
 		await discard(res);
 
 		if (!ACCEPTED.has(res.status)) {
-			return { success: false, status: res.status, isImage: false, message: res.statusText };
+			return { success: false, status: res.status, isImage: false, message: res.statusText || STATUS_CODES[res.status] || 'Unknown status' };
 		}
 
 		return { success: true, status: res.status, isImage };

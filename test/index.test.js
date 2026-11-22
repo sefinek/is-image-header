@@ -1,16 +1,25 @@
+const { describe, test, afterEach, mock } = require('node:test');
+const assert = require('node:assert/strict');
 const isImage = require('../index.js');
 
-const mockFetch = (status, statusText, contentType) => {
-	jest.spyOn(global, 'fetch').mockResolvedValue({
-		ok: status >= 200 && status < 300,
-		status,
-		statusText,
-		headers: { get: key => key === 'content-type' ? contentType : null },
-		body: { cancel: jest.fn() },
+const fetchMock = (...results) => {
+	let call = 0;
+	return mock.method(globalThis, 'fetch', async () => {
+		const result = results[Math.min(call++, results.length - 1)];
+		if (result instanceof Error) throw result;
+		return result;
 	});
 };
 
-afterEach(() => jest.restoreAllMocks());
+const mockFetch = (status, statusText, contentType) => fetchMock({
+	ok: status >= 200 && status < 300,
+	status,
+	statusText,
+	headers: { get: key => key === 'content-type' ? contentType : null },
+	body: { cancel: mock.fn() },
+});
+
+afterEach(() => mock.restoreAll());
 
 describe('URL validation', () => {
 	const invalid = [
@@ -23,91 +32,106 @@ describe('URL validation', () => {
 		['ftp URL', 'ftp://example.com/image.jpg'],
 	];
 
-	test.each(invalid)('%s → Invalid URL', async (_, url) => {
-		const result = await isImage(url);
-		expect(result).toEqual({ success: false, status: null, isImage: false, message: 'Invalid URL' });
-	});
+	for (const [name, url] of invalid) {
+		test(`${name} → Invalid URL`, async () => {
+			const result = await isImage(url);
+			assert.deepEqual(result, { success: false, status: null, isImage: false, message: 'Invalid URL' });
+		});
+	}
 });
 
 describe('unit (mocked fetch)', () => {
 	describe('HTTP 200', () => {
 		test('image/jpeg → isImage: true', async () => {
 			mockFetch(200, 'OK', 'image/jpeg');
-			expect(await isImage('https://example.com/img.jpg')).toEqual({ success: true, status: 200, isImage: true });
+			assert.deepEqual(await isImage('https://example.com/img.jpg'), { success: true, status: 200, isImage: true });
 		});
 
 		test('image/png; charset=utf-8 → isImage: true', async () => {
 			mockFetch(200, 'OK', 'image/png; charset=utf-8');
-			expect(await isImage('https://example.com/img.png')).toEqual({ success: true, status: 200, isImage: true });
+			assert.deepEqual(await isImage('https://example.com/img.png'), { success: true, status: 200, isImage: true });
 		});
 
 		test('image/gif → isImage: true', async () => {
 			mockFetch(200, 'OK', 'image/gif');
-			expect(await isImage('https://example.com/img.gif')).toEqual({ success: true, status: 200, isImage: true });
+			assert.deepEqual(await isImage('https://example.com/img.gif'), { success: true, status: 200, isImage: true });
 		});
 
 		test('image/webp → isImage: true', async () => {
 			mockFetch(200, 'OK', 'image/webp');
-			expect(await isImage('https://example.com/img.webp')).toEqual({ success: true, status: 200, isImage: true });
+			assert.deepEqual(await isImage('https://example.com/img.webp'), { success: true, status: 200, isImage: true });
 		});
 
 		test('text/html → isImage: false', async () => {
 			mockFetch(200, 'OK', 'text/html');
-			expect(await isImage('https://example.com')).toEqual({ success: true, status: 200, isImage: false });
+			assert.deepEqual(await isImage('https://example.com'), { success: true, status: 200, isImage: false });
 		});
 
 		test('missing content-type → isImage: false', async () => {
 			mockFetch(200, 'OK', null);
-			expect(await isImage('https://example.com')).toEqual({ success: true, status: 200, isImage: false });
+			assert.deepEqual(await isImage('https://example.com'), { success: true, status: 200, isImage: false });
 		});
 
 		test('206 Partial Content → isImage: true', async () => {
 			mockFetch(206, 'Partial Content', 'image/jpeg');
-			expect(await isImage('https://example.com/img.jpg')).toEqual({ success: true, status: 206, isImage: true });
+			assert.deepEqual(await isImage('https://example.com/img.jpg'), { success: true, status: 206, isImage: true });
+		});
+	});
+
+	describe('empty statusText (HTTP/2)', () => {
+		test('falls back to the standard reason phrase', async () => {
+			mockFetch(404, '', null);
+			assert.deepEqual(await isImage('https://example.com'), {
+				success: false,
+				status: 404,
+				isImage: false,
+				message: 'Not Found',
+			});
 		});
 	});
 
 	describe('non-200 status codes', () => {
-		test.each([
+		for (const [status, statusText] of [
 			[301, 'Moved Permanently'],
 			[403, 'Forbidden'],
 			[404, 'Not Found'],
 			[500, 'Internal Server Error'],
 			[503, 'Service Unavailable'],
-		])('HTTP %i → failure', async (status, statusText) => {
-			mockFetch(status, statusText, null);
-			expect(await isImage('https://example.com')).toEqual({
-				success: false,
-				status,
-				isImage: false,
-				message: statusText,
+		]) {
+			test(`HTTP ${status} → failure`, async () => {
+				mockFetch(status, statusText, null);
+				assert.deepEqual(await isImage('https://example.com'), {
+					success: false,
+					status,
+					isImage: false,
+					message: statusText,
+				});
 			});
-		});
+		}
 	});
 
 	describe('HEAD fallback', () => {
 		test('405 Method Not Allowed → GET range fallback', async () => {
-			jest.spyOn(global, 'fetch')
-				.mockResolvedValueOnce({
-					ok: false,
-					status: 405,
-					statusText: 'Method Not Allowed',
-					headers: { get: () => null },
-					body: { cancel: jest.fn() },
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					status: 206,
-					statusText: 'Partial Content',
-					headers: { get: key => key === 'content-type' ? 'image/jpeg' : null },
-					body: { cancel: jest.fn() },
-				});
+			const fetch = fetchMock({
+				ok: false,
+				status: 405,
+				statusText: 'Method Not Allowed',
+				headers: { get: () => null },
+				body: { cancel: mock.fn() },
+			}, {
+				ok: true,
+				status: 206,
+				statusText: 'Partial Content',
+				headers: { get: key => key === 'content-type' ? 'image/jpeg' : null },
+				body: { cancel: mock.fn() },
+			});
 
-			expect(await isImage('https://example.com/img.jpg')).toEqual({ success: true, status: 206, isImage: true });
-			expect(global.fetch).toHaveBeenNthCalledWith(2, 'https://example.com/img.jpg', expect.objectContaining({
-				method: 'GET',
-				headers: expect.objectContaining({ Range: 'bytes=0-0' }),
-			}));
+			assert.deepEqual(await isImage('https://example.com/img.jpg'), { success: true, status: 206, isImage: true });
+
+			const [url, options] = fetch.mock.calls[1].arguments;
+			assert.equal(url, 'https://example.com/img.jpg');
+			assert.equal(options.method, 'GET');
+			assert.equal(options.headers.Range, 'bytes=0-0');
 		});
 	});
 
@@ -115,8 +139,8 @@ describe('unit (mocked fetch)', () => {
 		test('TimeoutError → "Request timed out"', async () => {
 			const err = new Error('The operation was aborted due to timeout');
 			err.name = 'TimeoutError';
-			jest.spyOn(global, 'fetch').mockRejectedValue(err);
-			expect(await isImage('https://example.com')).toEqual({
+			fetchMock(err);
+			assert.deepEqual(await isImage('https://example.com'), {
 				success: false,
 				status: null,
 				isImage: null,
@@ -125,13 +149,10 @@ describe('unit (mocked fetch)', () => {
 		});
 
 		test('network error → "Error while fetching the resource: ..."', async () => {
-			jest.spyOn(global, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
-			expect(await isImage('https://example.com')).toEqual({
-				success: false,
-				status: null,
-				isImage: null,
-				message: expect.stringContaining('Error while fetching the resource'),
-			});
+			fetchMock(new TypeError('fetch failed'));
+			const { message, ...rest } = await isImage('https://example.com');
+			assert.deepEqual(rest, { success: false, status: null, isImage: null });
+			assert.match(message, /Error while fetching the resource/);
 		});
 	});
 });
@@ -139,26 +160,23 @@ describe('unit (mocked fetch)', () => {
 describe('integration', () => {
 	test('image URL → isImage: true', async () => {
 		const result = await isImage('https://cdn.sefinek.net/images/animals/cat/cat-story-25-1377426-min.jpg');
-		expect(result).toEqual({ success: true, status: 200, isImage: true });
+		assert.deepEqual(result, { success: true, status: 200, isImage: true });
 	});
 
 	test('non-image URL → isImage: false', async () => {
 		const result = await isImage('https://sefinek.net');
-		expect(result).toEqual({ success: true, status: 200, isImage: false });
+		assert.deepEqual(result, { success: true, status: 200, isImage: false });
 	});
 
 	test('404 → failure', async () => {
 		const result = await isImage('https://sefinek.net/non-existing-image.jpg');
-		expect(result).toEqual({ success: false, status: 404, isImage: false, message: 'Not Found' });
+		assert.deepEqual(result, { success: false, status: 404, isImage: false, message: 'Not Found' });
 	});
 
 	test('invalid host → network error', async () => {
 		const result = await isImage('https://invalid-host/non-existing-image.jpg');
-		expect(result).toEqual({
-			success: false,
-			status: null,
-			isImage: null,
-			message: expect.stringContaining('Error while fetching the resource'),
-		});
+		const { message, ...rest } = result;
+		assert.deepEqual(rest, { success: false, status: null, isImage: null });
+		assert.match(message, /Error while fetching the resource/);
 	});
 });
